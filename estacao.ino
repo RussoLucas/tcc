@@ -1,40 +1,36 @@
+#define BLYNK_USE_DIRECT_CONNECT
+#include <SoftwareSerial.h>
+SoftwareSerial DebugSerial(10, 11); // RX, TX
+
+//#define BLYNK_PRINT DebugSerial //Configurações para conexão com o Blynk
+
+#include <BlynkSimpleSerialBLE.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <DHT.h>
 #include <Adafruit_BMP085.h>
+#include <SPI.h>
+#include <SD.h>
 
-#define DHT_PIN 7
+#define DHT_PIN 7 //Definição de pinos dos sensores
 #define DHT_TYPE DHT11
+
+DHT dht(DHT_PIN, DHT_TYPE);
+
+int MQ_135 = A0;
 
 Adafruit_BMP085 bmp;
 
-LiquidCrystal_I2C lcd(0x27,16,2);
+LiquidCrystal_I2C lcd(0x27,20,4);
 
-DHT dht(DHT_PIN, DHT_TYPE);
-int MQ_135 = A0;
+char auth[] = "nJZTjEvsx70lQil9Fu3QcWKop_QxbFdP"; //Código de acesso ao Blynk
 
-void setup() {
-  Serial.begin(9600);
-  lcd.init();
-  lcd.backlight();
-  dht.begin();
-  bmp.begin();
-  
-}
+const int chipSelect = 4;
 
-void loop() {
-  
-  dht_data();
-  mq135_data();
-  bmp180_data();
-  lcd_printer();
-  
-  delay(3000);
-}
-
-void lcd_printer(){
+void LcdPrint() {
   delay(3000);
   lcd.clear();
+  lcd.setCursor(0,0);
   lcd.print("Umidade:");
   lcd.setCursor(9,0);
   lcd.print(dht.readHumidity(),0);
@@ -50,12 +46,11 @@ void lcd_printer(){
   
   //tela 2
   lcd.clear();
-  lcd.print("Qualidade do ar");
-  lcd.setCursor(0,1);
-  lcd.print("CO2:");
-  lcd.setCursor(4,1);
+  lcd.setCursor(0,0);
+  lcd.print("Gas: ");
+  lcd.setCursor(5,0);
   lcd.print(analogRead(MQ_135));
-  lcd.setCursor(9,1);
+  lcd.setCursor(8,0);
   lcd.print("ppm");
   delay(3000);
   
@@ -64,8 +59,6 @@ void lcd_printer(){
   lcd.print("Pressao:");
   lcd.setCursor(8,0);
   lcd.print(bmp.readPressure());
-  lcd.setCursor(14,0);
-  lcd.print("Pa");
   lcd.setCursor(0,1);
   lcd.print("Altitude:");
   lcd.setCursor(9,1);
@@ -75,24 +68,52 @@ void lcd_printer(){
   delay(3000);
 }
 
-void bmp180_data(){
-  Serial.print(" Pressao: ");
-  Serial.print(bmp.readPressure());
-  Serial.print(" Altitude: ");
-  Serial.print(bmp.readAltitude());
+void salvaSD(){
+  File dataFile = SD.open("datalog.txt", FILE_WRITE);
+
+  if (dataFile) {
+    dataFile.print("Umidade: ");
+    dataFile.print(dht.readHumidity());
+    dataFile.print("; Temperatura: ");
+    dataFile.print(dht.readTemperature());
+    dataFile.print("; Pressão: ");
+    dataFile.print(bmp.readPressure());
+    dataFile.print("; Altitude: ");
+    dataFile.print(bmp.readAltitude());
+    dataFile.print("; Gas: ");
+    dataFile.print(analogRead(A0));
+    dataFile.print(";\n");
+    dataFile.close();
+  }
 }
 
-void mq135_data(){
-  Serial.print(" Gas: ");
-  Serial.print(analogRead(MQ_135));
-  Serial.println("");
+void setup(){
+  DebugSerial.begin(9600);
+  Serial.begin(9600);
+  dht.begin();
+  bmp.begin();
+  Blynk.begin(Serial, auth);
+
+  
+  lcd.init();                     
+  lcd.init();
+  lcd.backlight();
+
+  SD.begin(chipSelect);
 }
 
-void dht_data(){
-  Serial.println("");
-  Serial.print(" Umidade: ");
-  Serial.print(dht.readHumidity());
-  Serial.print("%");
-  Serial.print(" Temperatura: ");
-  Serial.println(dht.readTemperature());
+void loop()
+{
+  Blynk.run();
+
+  Blynk.virtualWrite(V1,dht.readHumidity());
+  Blynk.virtualWrite(V2,analogRead(MQ_135));
+  Blynk.virtualWrite(V3,bmp.readPressure());
+  Blynk.virtualWrite(V4,bmp.readAltitude());
+  Blynk.virtualWrite(V5,dht.readTemperature());
+
+  LcdPrint();
+  salvaSD();
+   
+  delay(3000);
 }
