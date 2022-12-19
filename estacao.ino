@@ -2,7 +2,7 @@
 #include <SoftwareSerial.h>
 SoftwareSerial DebugSerial(10, 11); // RX, TX
 
-//#define BLYNK_PRINT DebugSerial //Configurações para conexão com o Blynk
+//#define BLYNK_PRINT DebugSerial Configurações para conexão com o Blynk
 
 #include <BlynkSimpleSerialBLE.h>
 #include <Wire.h>
